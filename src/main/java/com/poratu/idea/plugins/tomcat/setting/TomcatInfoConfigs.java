@@ -4,8 +4,8 @@ import com.intellij.openapi.components.PersistentStateComponent;
 import com.intellij.openapi.components.ServiceManager;
 import com.intellij.openapi.components.State;
 import com.intellij.openapi.components.Storage;
-import com.intellij.openapi.project.Project;
 import com.intellij.util.xmlb.XmlSerializerUtil;
+import com.intellij.util.xmlb.annotations.XCollection;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -19,35 +19,16 @@ import java.util.Optional;
  * Time   : 15:20
  */
 
-@State(
-        name = "TomcatInfoConfigs",
-        storages = {
-                @Storage("TomcatInfoConfigs.xml")}
-)
+@State(name = "ServerConfiguration", storages = @Storage("smart.tomcat.xml"))
 public class TomcatInfoConfigs implements PersistentStateComponent<TomcatInfoConfigs> {
 
+    @XCollection(elementTypes = TomcatInfo.class)
     private List<TomcatInfo> tomcatInfos = new ArrayList<>();
-    private TomcatInfo current;
-
-    public TomcatInfo getCurrent() {
-        return current;
-    }
-
-    public void setCurrent(TomcatInfo current) {
-        this.current = current;
-    }
 
     public List<TomcatInfo> getTomcatInfos() {
         return tomcatInfos;
     }
 
-    public void setTomcatInfos(List<TomcatInfo> tomcatInfos) {
-        this.tomcatInfos = tomcatInfos;
-    }
-
-    public void addTomcatInfo(TomcatInfo tomcatInfo) {
-        this.tomcatInfos.add(tomcatInfo);
-    }
 
     @Nullable
     @Override
@@ -64,12 +45,6 @@ public class TomcatInfoConfigs implements PersistentStateComponent<TomcatInfoCon
     @Nullable
     public static TomcatInfoConfigs getInstance() {
         TomcatInfoConfigs sfec = ServiceManager.getService(TomcatInfoConfigs.class);
-        return sfec;
-    }
-
-    @Nullable
-    public static TomcatInfoConfigs getInstance(Project project) {
-        TomcatInfoConfigs sfec = ServiceManager.getService(project, TomcatInfoConfigs.class);
         return sfec;
     }
 

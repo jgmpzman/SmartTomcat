@@ -1,50 +1,32 @@
 plugins {
-    id "org.jetbrains.intellij" version "0.2.13"
+    id 'java'
+    id 'org.jetbrains.intellij' version '0.4.14'
 }
 
-//apply plugin: 'org.jetbrains.intellij'
-apply plugin: 'java'
+version '3.5.0'
 
-// On travis, we don't want to deploy to Jetbrains that requires credentials
-if (project.file('gradle.properties').exists()) {
-    apply from: "gradle.properties"
-}
-
-intellij {
-    version = '2016.3.4'
-    updateSinceUntilBuild = false
-    pluginName = 'SmartTomcat'
-}
+sourceCompatibility = 1.8
 
 repositories {
     mavenCentral()
 }
 
-sourceSets {
-    //noinspection GroovyAssignabilityCheck
-    main {
-        java.srcDirs = ['src']
-        resources.srcDirs = ['resources']
-    }
-    test {
-        java.srcDirs = ['tests']
-        resources.srcDirs = ['testData']
-    }
-}
-
-task copyResourcesToClasses(type: Copy) {
-    from "${projectDir}/testData"
-    into "${buildDir}/classes/test"
-}
-
-instrumentTestCode.dependsOn copyResourcesToClasses
-
 dependencies {
-    compile fileTree(dir: 'lib', include: ['*.jar'])
+    testCompile group: 'junit', name: 'junit', version: '4.12'
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '3.5'
+intellij {
+    version '2019.3'
+    pluginName = 'SmartTomcat'
+    plugins 'java'
+    updateSinceUntilBuild false
 }
-
-version '2.6'
+patchPluginXml {
+    changeNotes """
+      new feature: Additional context parameters in custom context.xml. 
+      fixed: 2019.3 storage issue.
+   """
+}
+/*publishPlugin {
+    token intellijPublishToken
+}*/

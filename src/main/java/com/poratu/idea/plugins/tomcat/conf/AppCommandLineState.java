@@ -13,6 +13,7 @@ import com.intellij.openapi.project.Project;
 import com.intellij.openapi.roots.ModuleRootManager;
 import com.intellij.openapi.roots.ProjectRootManager;
 import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import org.jetbrains.annotations.NotNull;
@@ -35,13 +36,13 @@ import javax.xml.xpath.XPathFactory;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Author : zengkid
@@ -65,15 +66,12 @@ public class AppCommandLineState extends JavaCommandLineState {
     }
 
     @Override
-    protected JavaParameters createJavaParameters() throws ExecutionException {
+    protected JavaParameters createJavaParameters() {
         try {
             logger.info("About to run Tomcat Configuration: " + configuration);
             Path tomcatInstallationPath = Paths.get(configuration.getTomcatInfo().getPath());
-            String docBase = configuration.getDocBase();
+            String moduleRoot = configuration.getModuleName();
             String contextPath = configuration.getContextPath();
-            String port = configuration.getPort();
-            String ajpPort = configuration.getAjpPort();
-            String adminPort = configuration.getAdminPort();
             String tomcatVersion = configuration.getTomcatInfo().getVersion();
             String vmOptions = configuration.getVmOptions();
             Map<String, String> envOptions = configuration.getEnvOptions();
@@ -93,9 +91,14 @@ public class AppCommandLineState extends JavaCommandLineState {
             addBinFolder(tomcatInstallationPath, javaParams);
             addLibFolder(tomcatInstallationPath, javaParams);
 
+            File file = new File(configuration.getDocBase());
+            VirtualFile fileByIoFile = LocalFileSystem.getInstance().findFileByIoFile(file);
+            Module module = ModuleUtilCore.findModuleForFile(fileByIoFile, configuration.getProject());
 
-            VirtualFile fileByIoFile = LocalFileSystem.getInstance().findFileByIoFile(new File(docBase));
-            Module module = ModuleUtilCore.findModuleForFile(fileByIoFile, project);
+
+            if (module == null) {
+                throw new ExecutionException("The Module Root specified is not a module according to Intellij");
+            }
 
             String userHome = System.getProperty("user.home");
             Path workPath = Paths.get(userHome, ".SmartTomcat", project.getName(), module.getName());
@@ -110,28 +113,29 @@ public class AppCommandLineState extends JavaCommandLineState {
             javaParams.setWorkingDirectory(workPath.toFile());
 
 
-            updateServerConf(tomcatVersion, module, confPath, contextPath, docBase, port, ajpPort, adminPort);
+            updateServerConf(tomcatVersion, module, confPath, contextPath, configuration);
 
 
             javaParams.setPassParentEnvs(configuration.getPassParentEnvironmentVariables());
             javaParams.getVMParametersList().addParametersString(vmOptions);
-            javaParams.setEnv(envOptions);
+            if (envOptions != null) {
+                javaParams.setEnv(envOptions);
+            }
             return javaParams;
 
         } catch (Exception e) {
             logger.error("Error while starting Tomcat with the selected configuration.", e);
-            throw new RuntimeException(e);
+            throw new RuntimeException(e.getMessage(), e);
         }
     }
 
     @Nullable
     @Override
-    protected ConsoleView createConsole(@NotNull Executor executor) throws ExecutionException {
-        ConsoleView consoleView = new ServerConsoleView(configuration);
-        return consoleView;
+    protected ConsoleView createConsole(@NotNull Executor executor) {
+        return new ServerConsoleView(configuration);
     }
 
-    private void updateServerConf(String tomcatVersion, Module module, Path confPath, String contextPath, String docBase, String port, String ajpPort, String adminPort) throws Exception {
+    private void updateServerConf(String tomcatVersion, Module module, Path confPath, String contextPath, TomcatRunConfiguration cfg) throws Exception {
 
         Path serverXml = confPath.resolve("server.xml");
 
@@ -143,13 +147,11 @@ public class AppCommandLineState extends JavaCommandLineState {
         XPath xpath = xPathfactory.newXPath();
         XPathExpression exprConnectorShutdown = xpath.compile("/Server[@shutdown='SHUTDOWN']");
         XPathExpression exprConnector = xpath.compile("/Server/Service[@name='Catalina']/Connector[@protocol='HTTP/1.1']");
-        XPathExpression exprConnectorAjp = xpath.compile("/Server/Service[@name='Catalina']/Connector[@protocol='AJP/1.3']");
         XPathExpression expr = xpath.compile("/Server/Service[@name='Catalina']/Engine[@name='Catalina']/Host");
         XPathExpression exprContext = xpath.compile
                 ("/Server/Service[@name='Catalina']/Engine[@name='Catalina']/Host/Context");
 
         Element portShutdown = (Element) exprConnectorShutdown.evaluate(doc, XPathConstants.NODE);
-        Element portEAjp = (Element) exprConnectorAjp.evaluate(doc, XPathConstants.NODE);
         Element portE = (Element) exprConnector.evaluate(doc, XPathConstants.NODE);
         Node hostNode = (Node) expr.evaluate(doc, XPathConstants.NODE);
         NodeList nodeList = (NodeList) exprContext.evaluate(doc, XPathConstants.NODESET);
@@ -160,13 +162,29 @@ public class AppCommandLineState extends JavaCommandLineState {
                 node.getParentNode().removeChild(node);
             }
         }
-        portShutdown.setAttribute("port", adminPort);
-        portEAjp.setAttribute("port", ajpPort);
-        portE.setAttribute("port", port);
+        portShutdown.setAttribute("port", cfg.getAdminPort());
+        portE.setAttribute("port", cfg.getPort());
 
 
         Element contextE = doc.createElement("Context");
-        contextE.setAttribute("docBase", docBase + ".war");
+//<<<<<<< HEAD:src/com/poratu/idea/plugins/tomcat/conf/AppCommandLineState.java
+//        contextE.setAttribute("docBase", docBase + ".war");
+//=======
+
+
+        String customContext = cfg.getCustomContext();
+        if (StringUtil.isNotEmpty(customContext)) {
+            File customContextFile = new File(customContext);
+            if (customContextFile.exists()) {
+
+                org.w3c.dom.Document customContextDoc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(customContextFile);
+                contextE = (Element) doc.importNode(customContextDoc.getDocumentElement(), true);
+
+            }
+        }
+
+        contextE.setAttribute("docBase", cfg.getDocBase());
+//>>>>>>> master:src/main/java/com/poratu/idea/plugins/tomcat/conf/AppCommandLineState.java
         contextE.setAttribute("path", (contextPath.startsWith("/") ? "" : "/") + contextPath);
         hostNode.appendChild(contextE);
 
@@ -209,7 +227,7 @@ public class AppCommandLineState extends JavaCommandLineState {
             } else if (version >= 6) { //for tomcat6-7
                 Element loaderE = doc.createElement("Loader");
                 loaderE.setAttribute("className", "org.apache.catalina.loader.VirtualWebappLoader");
-                loaderE.setAttribute("virtualClasspath", paths.stream().collect(Collectors.joining(";")));
+                loaderE.setAttribute("virtualClasspath", String.join(";", paths));
                 contextE.appendChild(loaderE);
             }
         }
@@ -217,7 +235,7 @@ public class AppCommandLineState extends JavaCommandLineState {
 
         Source source = new DOMSource(doc);
         StreamResult result = new StreamResult(new OutputStreamWriter(new FileOutputStream(serverXml.toFile()),
-                "UTF-8"));
+                StandardCharsets.UTF_8.name()));
         Transformer xformer = TransformerFactory.newInstance().newTransformer();
         xformer.transform(source, result);
 
