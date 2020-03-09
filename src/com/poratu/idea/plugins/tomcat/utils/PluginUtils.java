@@ -1,5 +1,6 @@
 package com.poratu.idea.plugins.tomcat.utils;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.projectRoots.ProjectJdkTable;
 import com.intellij.openapi.projectRoots.Sdk;
 import com.poratu.idea.plugins.tomcat.setting.TomcatInfo;
@@ -17,7 +18,9 @@ import java.util.stream.Stream;
  */
 public abstract class PluginUtils {
 
-    public static Sdk getDefaultJDK(){
+    private static final Logger logger = Logger.getInstance(PluginUtils.class);
+
+    public static Sdk getDefaultJDK() {
         Sdk[] allJdks = ProjectJdkTable.getInstance().getAllJdks();
         if (allJdks == null || allJdks.length == 0) {
             throw new RuntimeException("Please setup your project JDK first");
@@ -55,6 +58,7 @@ public abstract class PluginUtils {
             reader.close();
 
         } catch (Exception e) {
+            logger.error("Error getting Tomcat information", e);
             throw new RuntimeException(e);
 
         } finally {
@@ -62,12 +66,11 @@ public abstract class PluginUtils {
                 try {
                     reader.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    logger.error("Error closing buffered reader", e);
                 }
             }
         }
         return tomcatInfo;
-
     }
 
     private static String getValue(String s) {
@@ -77,7 +80,5 @@ public abstract class PluginUtils {
             result = strings[1].trim();
         }
         return result;
-
-
     }
 }

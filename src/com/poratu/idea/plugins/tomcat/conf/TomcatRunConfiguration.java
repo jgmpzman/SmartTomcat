@@ -182,4 +182,19 @@ public class TomcatRunConfiguration extends RunConfigurationBase implements RunP
         ModuleManager moduleManager = ModuleManager.getInstance(getProject());
         return moduleManager.getModules();
     }
+
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("TomcatInfo - [").append(tomcatInfo).append("]").append(System.lineSeparator())
+                .append("docBase - [").append(docBase).append("]").append(System.lineSeparator())
+                .append("contextPath - [").append(contextPath).append("]").append(System.lineSeparator())
+                .append("port - [").append(port).append("]").append(System.lineSeparator())
+                .append("ajpPort - [").append(ajpPort).append("]").append(System.lineSeparator())
+                .append("adminPort - [").append(adminPort).append("]").append(System.lineSeparator())
+                .append("vmOptions - [").append(vmOptions).append("]").append(System.lineSeparator())
+                .append("envOptions - [").append(envOptions).append("]").append(System.lineSeparator())
+                .append("passParentEnvironmentVariables - [").append(passParentEnvironmentVariables).append("]");
+        return builder.toString();
+    }
 }

@@ -6,6 +6,7 @@ import com.intellij.execution.configurations.JavaCommandLineState;
 import com.intellij.execution.configurations.JavaParameters;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.execution.ui.ConsoleView;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.module.Module;
 import com.intellij.openapi.module.ModuleUtilCore;
 import com.intellij.openapi.project.Project;
@@ -38,7 +39,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 
 public class AppCommandLineState extends JavaCommandLineState {
 
+    private static final Logger logger = Logger.getInstance(AppCommandLineState.class);
     private static final String TOMCAT_MAIN_CLASS = "org.apache.catalina.startup.Bootstrap";
     private TomcatRunConfiguration configuration;
 
@@ -63,11 +64,10 @@ public class AppCommandLineState extends JavaCommandLineState {
         this.configuration = configuration;
     }
 
-
     @Override
     protected JavaParameters createJavaParameters() throws ExecutionException {
         try {
-
+            logger.info("About to run Tomcat Configuration: " + configuration);
             Path tomcatInstallationPath = Paths.get(configuration.getTomcatInfo().getPath());
             String docBase = configuration.getDocBase();
             String contextPath = configuration.getContextPath();
@@ -119,10 +119,9 @@ public class AppCommandLineState extends JavaCommandLineState {
             return javaParams;
 
         } catch (Exception e) {
+            logger.error("Error while starting Tomcat with the selected configuration.", e);
             throw new RuntimeException(e);
         }
-
-
     }
 
     @Nullable
@@ -167,7 +166,7 @@ public class AppCommandLineState extends JavaCommandLineState {
 
 
         Element contextE = doc.createElement("Context");
-        contextE.setAttribute("docBase", docBase);
+        contextE.setAttribute("docBase", docBase + ".war");
         contextE.setAttribute("path", (contextPath.startsWith("/") ? "" : "/") + contextPath);
         hostNode.appendChild(contextE);
 
@@ -229,7 +228,7 @@ public class AppCommandLineState extends JavaCommandLineState {
         // Dynamically adds the tomcat jars to the classpath
         Path binFolder = tomcatInstallation.resolve("bin");
         if (!Files.exists(binFolder)) {
-            throw new ExecutionException("The Tomcat installation configured doesn't contains a bin folder");
+            throw new ExecutionException("The Tomcat installation configured doesn't contain a bin folder");
         }
         String[] jars = binFolder.toFile().list((dir, name) -> name.endsWith(".jar"));
 
@@ -243,7 +242,7 @@ public class AppCommandLineState extends JavaCommandLineState {
         // add libs folder
         Path libFolder = tomcatInstallation.resolve("lib");
         if (!Files.exists(libFolder)) {
-            throw new ExecutionException("The Tomcat installation configured doesn't contains a lib folder");
+            throw new ExecutionException("The Tomcat installation configured doesn't contain a lib folder");
         }
         String[] jars = libFolder.toFile().list((dir, name) -> name.endsWith(".jar"));
 
